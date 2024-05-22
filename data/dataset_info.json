@@ -1,0 +1,11 @@
+{
+    "vgen": {
+        "file_name": "raw/vgen.csv",
+        "columns": {
+            "prompt": "text"
+        }
+    },
+    "instruct_ne": {
+        "file_name": "finetune/code-ann-spec-formatted.jsonl"
+    }
+}
