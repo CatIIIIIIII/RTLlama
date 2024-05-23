@@ -11,13 +11,13 @@ if [ ! -f "$YAML_PATH" ]; then
   exit 1
 fi
 
-NPROC_PER_NODE=7
+NPROC_PER_NODE=8
 NNODES=1
 RANK=0
 MASTER_ADDR=127.0.0.1
 MASTER_PORT=29501
 
-export CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 torchrun \
     --nproc_per_node $NPROC_PER_NODE \
     --nnodes $NNODES \
