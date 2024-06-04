@@ -1,0 +1,18 @@
+### model
+model_name_or_path: /data/ckpt/wangning/codellama-7B/finetune/best
+template: llama2
+
+### ddp
+ddp_timeout: 180000000
+deepspeed: rtllama/configs/deepspeed/ds_z3_config.json
+
+### dataset
+dataset: instruct_data
+template: llama2
+cutoff_len: 2048
+# max_samples: 13000
+overwrite_cache: true
+preprocessing_num_workers: 16
+
+### output
+output_dir: outputs/generation

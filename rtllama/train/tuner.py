@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import torch
-from transformers import PreTrainedModel
+from transformers import PreTrainedModel, TrainerCallback
 
 from rtllama.data import get_template_and_fix_tokenizer
 from rtllama.extras.callbacks import LogCallback
@@ -10,10 +10,9 @@ from rtllama.hparams import get_infer_args, get_train_args
 from rtllama.model import load_model, load_tokenizer
 from .pt import run_pt
 from .sft import run_sft
-
-
-if TYPE_CHECKING:
-    from transformers import TrainerCallback
+from .dpo import run_dpo
+from .rm import run_rm
+from .ppo import run_ppo
 
 
 logger = get_logger(__name__)
@@ -27,6 +26,12 @@ def run_exp(args: Optional[Dict[str, Any]] = None, callbacks: List["TrainerCallb
         run_pt(model_args, data_args, training_args, finetuning_args, callbacks)
     elif finetuning_args.stage == "sft":
         run_sft(model_args, data_args, training_args, finetuning_args, generating_args, callbacks)
+    elif finetuning_args.stage == "dpo":
+        run_dpo(model_args, data_args, training_args, finetuning_args, callbacks)
+    elif finetuning_args.stage == "rm":
+        run_rm(model_args, data_args, training_args, finetuning_args, callbacks)
+    elif finetuning_args.stage == "ppo":
+        run_ppo(model_args, data_args, training_args, finetuning_args, generating_args, callbacks)
     else:
         raise ValueError("Unknown task.")
 

@@ -199,15 +199,6 @@ def _create_galore_optimizer(
 
     _, optim_kwargs = Trainer.get_optimizer_cls_and_kwargs(training_args)
 
-    if training_args.optim == "adamw_torch":
-        optim_class = GaLoreAdamW
-    elif training_args.optim in ["adamw_bnb_8bit", "adamw_8bit", "paged_adamw_8bit"]:
-        optim_class = GaLoreAdamW8bit
-    elif training_args.optim == "adafactor":
-        optim_class = GaLoreAdafactor
-    else:
-        raise NotImplementedError("Unknow optim: {}".format(training_args.optim))
-
     if finetuning_args.galore_layerwise:
         if training_args.gradient_accumulation_steps != 1:
             raise ValueError("Per-layer GaLore does not support gradient accumulation.")

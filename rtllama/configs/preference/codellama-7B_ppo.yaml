@@ -1,0 +1,43 @@
+### model
+model_name_or_path: /data/ckpt/wangning/codellama-7B/finetune/best
+reward_model: outputs/reward
+reward_model_type: full
+
+### method
+stage: ppo
+do_train: true
+finetuning_type: lora
+lora_target: q_proj,v_proj
+
+### ddp
+ddp_timeout: 180000000
+# deepspeed: rtllama/configs/deepspeed/ds_z3_config.json
+
+### dataset
+dataset: instruct_data
+template: llama2
+cutoff_len: 2048
+# max_samples: 1000
+overwrite_cache: true
+preprocessing_num_workers: 16
+
+### output
+output_dir: outputs/ppo
+logging_steps: 1
+save_steps: 20
+plot_loss: true
+overwrite_output_dir: true
+
+### train
+per_device_train_batch_size: 12
+gradient_accumulation_steps: 1
+learning_rate: 0.00001
+num_train_epochs: 1.0
+lr_scheduler_type: cosine
+warmup_steps: 0.1
+bf16: true
+
+### generate
+max_new_tokens: 2048
+top_k: 0
+top_p: 0.9

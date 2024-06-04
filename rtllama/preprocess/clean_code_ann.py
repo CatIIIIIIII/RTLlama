@@ -1,7 +1,17 @@
 import re
 import json
 import copy
+from transformers import AutoTokenizer
+
 MAX_SEQ_LEN = 1500
+
+
+def extract_name(src_code):
+    pattern = r'module\s+(\w+)'
+    match = re.search(pattern, src_code)
+    if match:
+        return match.group(1)
+    return None
 
 
 def extract_io(src_code, io_type='input'):
@@ -63,8 +73,6 @@ ref_ids = {item['id'] for item in ref_data}
 src_data = {item['id']: item['src_code'] for item in ann_data}
 ann_data = {item['id']: item['code_ann'] for item in ann_data}
 
-print(type(src_data))
-
 # 1. filter out the spec_data where the length of spec and src_code is less than MAX_SEQ_LEN
 instruct_data = [{
     "id": item['id'],
@@ -78,6 +86,15 @@ print(
 instruct_data = [
     item for item in instruct_data if 'placeholder' not in item['spec']]
 
+# 3. extract module name from src_code
+for data in instruct_data:
+    data['module_name'] = extract_name(data['src_code'])
+noname_data = [data for data in instruct_data if data['module_name'] is None]
+instruct_data = [
+    data for data in instruct_data if data['module_name'] is not None]
+print(
+    f"Num of samples after module name filtering: {len(instruct_data)}. ({len(instruct_data)/len(spec_data):.2f})")
+
 # 3. extract input_ports and output_ports from ann_data
 for data in instruct_data:
     data['input_ports'] = list(extract_io(ann_data[data['id']]).keys())
@@ -90,6 +107,8 @@ for data in instruct_data:
         ann_data[data['id']], data['input_ports'])
     data['output_cmts'] = extract_cmt(
         ann_data[data['id']], data['output_ports'], io_type='output')
+nocomment_data = [data for data in instruct_data if data['input_cmts']
+                  is None or data['output_cmts'] is None]
 instruct_data = [data for data in instruct_data if data['input_cmts']
                  is not None and data['output_cmts'] is not None]
 print(
@@ -101,8 +120,63 @@ poor_data = [{"id": idx,
               "src_code": src_data[idx],
               "ann_code": ann_data[idx]} for idx in poor_data_id]
 
-# save them as json file seperately
-with open('instruct_data.json', 'w') as f:
+with open('instruct_data.jsonl', 'w') as f:
     json.dump(instruct_data, f, indent=4)
-with open('poor_instruct_data.json', 'w') as f:
+with open('poor_instruct_data.jsonl', 'w') as f:
     json.dump(poor_data, f, indent=4)
+
+# construct the final data
+instruct_dataset = []
+for data in instruct_data:
+
+    # formualte input ports as
+    inputs = "\n".join(
+        [f"    {port}: {data['input_cmts'][port]}" for port in data['input_ports']])
+    outputs = "\n".join(
+        [f"    {port}: {data['output_cmts'][port]}" for port in data['output_ports']])
+
+    instruct = f"""x
+Please act as a professional verilog designer.
+
+Implement a module using verilog language. You should make sure that the module is correct and can be synthesized successfully. You could define helper functions if needed. When you have finished, end the whole file with a line containing only "//END". The module should have the following properties:
+
+Module name:
+    {data["module_name"]}
+
+Input ports:
+    {inputs}
+
+Output ports:
+    {outputs}
+
+Implementation:
+    {data["spec"]}
+    """
+    instruct_dataset.append(
+        {"instruction": instruct, "input": "", "output": data['src_code']})
+
+# 5. extract if tokenizer(instruction + output) < 2048
+tokenizer = AutoTokenizer.from_pretrained(
+            "/data/ckpt/wangning/codellama-7B/finetune/best/",
+            use_fast=True,
+            split_special_tokens=False,
+            padding_side="right",
+        )
+
+length = []
+instruct_dataset_short = []
+for instruct in instruct_dataset:
+    lens = len(tokenizer(instruct["instruction"] + instruct["output"])["input_ids"])
+    if lens < 4096:
+        instruct_dataset_short.append(instruct)
+    length.append(lens)
+print(f"Num of samples after token length filtering: {len(instruct_dataset_short)}. ({len(instruct_dataset_short)/len(spec_data):.2f})")
+
+# plot the distribution of the length
+import matplotlib.pyplot as plt
+plt.hist(length, bins=20)
+plt.show()
+plt.savefig("length_distribution.png")
+
+with open('instruct_dataset.jsonl', 'w') as f:
+    json.dump(instruct_dataset_short, f, indent=4)

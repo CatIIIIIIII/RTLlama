@@ -117,11 +117,15 @@ class RLHFArguments:
     Arguments pertaining to the PPO and DPO training.
     """
 
-    dpo_beta: float = field(
+    pref_beta: float = field(
         default=0.1,
         metadata={"help": "The beta parameter for the DPO loss."},
     )
-    dpo_loss: Literal["sigmoid", "hinge", "ipo", "kto_pair"] = field(
+    pref_ftx: float = field(
+        default=0.0,
+        metadata={"help": "The supervised fine-tuning loss coefficient in DPO training."},
+    )
+    pref_loss: Literal["sigmoid", "hinge", "ipo", "kto_pair"] = field(
         default="sigmoid",
         metadata={"help": "The type of DPO loss to use."},
     )
@@ -144,6 +148,10 @@ class RLHFArguments:
     kto_rejected_weight: float = field(
         default=1.0,
         metadata={"help": "The weight factor of the undesirable losses in KTO training."},
+    )
+    simpo_gamma: float = field(
+        default=0.5,
+        metadata={"help": "The target reward margin term in SimPO loss."},
     )
     kto_ftx: float = field(
         default=0.0,
@@ -336,6 +344,12 @@ class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreA
         self.lora_target = split_arg(self.lora_target)
         self.additional_target = split_arg(self.additional_target)
         self.galore_target = split_arg(self.galore_target)
+        
+        assert self.finetuning_type in ["lora", "freeze", "full"], "Invalid fine-tuning method."
+        assert self.ref_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
+        assert self.reward_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
+        
+        self.use_ref_model = self.pref_loss not in ["orpo", "simpo"]
 
         assert self.finetuning_type in ["lora", "freeze", "full"], "Invalid fine-tuning method."
         assert self.ref_model_quantization_bit in [None, 8, 4], "We only accept 4-bit or 8-bit quantization."
@@ -347,7 +361,7 @@ class FinetuningArguments(FreezeArguments, LoraArguments, RLHFArguments, GaloreA
         if self.stage == "ppo" and self.reward_model_type == "lora" and self.finetuning_type != "lora":
             raise ValueError("`reward_model_type` cannot be lora for Freeze/Full PPO training.")
 
-        if self.stage == "dpo" and self.dpo_loss != "sigmoid" and self.dpo_label_smoothing > 1e-6:
+        if self.stage == "dpo" and self.pref_loss != "sigmoid" and self.dpo_label_smoothing > 1e-6:
             raise ValueError("`dpo_label_smoothing` is only valid for sigmoid loss function.")
 
         if self.use_llama_pro and self.finetuning_type == "full":
